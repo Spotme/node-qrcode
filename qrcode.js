@@ -30,6 +30,11 @@ exports.QRCodeDraw = QRCodeDraw;
 //
 exports.errorCorrectLevels = QRCodeLib.QRErrorCorrectLevel;
 
+//
+// export original canvas to be used with draw method, esp. Canvas.Image
+//
+exports.canvas=Canvas;
+
 /*
 * provide an api to return the max characters allowed for given dimensions, and miniumum error correction level
 * the qr code library will always use the maximum error correction level for the given numbar of chars constrained by size
@@ -39,6 +44,16 @@ exports.getMaxChars = function(minErrorCorrectionLevel,width,moduleScale){
   console.log('this doesnt work yet. comming soon =)');
 };
 
+var parseOptions = function(options) {
+  var textKeys = {'minimum':"L",'medium':"M",'high':"Q",'max':"H"}
+	if(options.errorCorrectLevel) {
+    var ec = options.errorCorrectLevel;  
+    if(textKeys[ec]){
+      options.errorCorrectLevel = textKeys[ec];
+    }
+  }
+  return options;
+};
 
 // returns Canvas Object with qr code drawn on it
 /*
@@ -54,18 +69,13 @@ var draw = exports.draw = function(text,options,cb){
 	
 	text = args.shift();
 	options = args.shift()||{};
-  var textKeys = {'minimum':"L",'medium':"M",'high':"Q",'max':"H"}
-	if(options.errorCorrectLevel) {
-    var ec = options.errorCorrectLevel;  
-    if(textKeys[ec]){
-      options.errorCorrectLevel = textKeys[ec];
-    }
-  }
+    options=parseOptions(options);
+
 	//NOTE the width and height are determined from within the qr code lib and are not configurable from the outside yet
   
 	var drawInstance = new QRCodeDraw();
-	drawInstance.draw(new Canvas(200,200),text,options,function(error,canvas){
-		cb(error,canvas)
+	drawInstance.draw(new Canvas(200,200),text,options,function(error,canvas,qrWidth){
+		cb(error,canvas,qrWidth)
 	});
 };
 
@@ -96,7 +106,7 @@ exports.toPNGStream = function (text, WSpath, options,cb) {
 
   var out = fs.createWriteStream(WSpath);
 
-  draw(text,function (error,canvas) {
+  draw(text, options, function (error,canvas) {
     if(error) {
       cb(error,'');
     } else {
@@ -124,25 +134,24 @@ exports.save = function(path,text,options,cb){
     options = {};
   }
 
-	draw(text,function(error,canvas){
+	draw(text, options, function(error,canvas){
 
 		var fd,buf,fdAndBuf = function(){
-			fs.write(fd, buf, 0, buf.length, 0, function(error,written){
+			fs.write(fd, buf, 0, buf.length, 0, function(fsErr, written){
 				fs.close(fd);
-				if(cb) cb(error,written);
+				if(cb) cb(fsErr, written);
 			});
 		};
 
 		//run non dependent async calls at the same time ish
-		canvas.toBuffer(function(error, _buf){
-			if(error) return cb(error,0);
-			
+		canvas.toBuffer(function(canvasErr, _buf){
+			if(canvasErr) return cb(canvasErr);
 			buf = _buf
 			if(fd) fdAndBuf();
 		});
 
-		fs.open(path, 'w', 0666, function(err,_fd){
-			if(error) return cb(error,0);
+		fs.open(path, 'w', 0666, function(fsErr,_fd){
+			if(fsErr) return cb(fsErr);
 			fd = _fd
 			if(buf) fdAndBuf();
 		});
@@ -161,9 +170,10 @@ exports.drawBitArray = function(text,options,cb){
     cb = options;
     options = {};
   }
+  options = parseOptions(options);
 
   var drawInstance = new QRCodeDraw();
-  drawInstance.drawBitArray(text,function(error,bits,width){
+  drawInstance.drawBitArray(text,options,function(error,bits,width){
     cb(error,bits,width);
   });
 }
