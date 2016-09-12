@@ -1,346 +1,57 @@
-var require = function (file, cwd) {
-    var resolved = require.resolve(file, cwd || '/');
-    var mod = require.modules[resolved];
-    if (!mod) throw new Error(
-        'Failed to resolve module ' + file + ', tried ' + resolved
-    );
-    var res = mod._cached ? mod._cached : mod();
-    return res;
-}
+;(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+/**
+this contains the max string length for all qr code Versions in Binary Safe / Byte Mode
+each entry is in the order of error correct level
+	[L,M,Q,H]
 
-require.paths = [];
-require.modules = {};
-require.extensions = [".js",".coffee"];
+the qrcode lib sets strange values for QRErrorCorrectLevel having to do with masking against patterns
+the maximum string length for error correct level H is 1273 characters long.
+*/
 
-require._core = {
-    'assert': true,
-    'events': true,
-    'fs': true,
-    'path': true,
-    'vm': true
-};
+exports.QRCapacityTable = [
+[17,14,11,7]
+,[32,26,20,14]
+,[53,42,32,24]
+,[78,62,46,34]
+,[106,84,60,44]
+,[134,106,74,58]
+,[154,122,86,64]
+,[192,152,108,84]
+,[230,180,130,98]
+,[271,213,151,119]
+,[321,251,177,137]//11
+,[367,287,203,155]
+,[425,331,241,177]
+,[458,362,258,194]
+,[520,412,292,220]
+,[586,450,322,250]
+,[644,504,364,280]
+,[718,560,394,310]
+,[792,624,442,338]
+,[858,666,482,382]
+,[929,711,509,403]
+,[1003,779,565,439]
+,[1091,857,611,461]
+,[1171,911,661,511]//24
+,[1273,997,715,535]
+,[1367,1059,751,593]
+,[1465,1125,805,625]
+,[1528,1190,868,658]//28
+,[1628,1264,908,698]
+,[1732,1370,982,742]
+,[1840,1452,1030,790]
+,[1952,1538,1112,842]//32
+,[2068,1628,1168,898]
+,[2188,1722,1228,958]
+,[2303,1809,1283,983]
+,[2431,1911,1351,1051]//36
+,[2563,1989,1423,1093]
+,[2699,2099,1499,1139]
+,[2809,2213,1579,1219]
+,[2953,2331,1663,1273]//40
+];
 
-require.resolve = (function () {
-    return function (x, cwd) {
-        if (!cwd) cwd = '/';
-        
-        if (require._core[x]) return x;
-        var path = require.modules.path();
-        var y = cwd || '.';
-        
-        if (x.match(/^(?:\.\.?\/|\/)/)) {
-            var m = loadAsFileSync(path.resolve(y, x))
-                || loadAsDirectorySync(path.resolve(y, x));
-            if (m) return m;
-        }
-        
-        var n = loadNodeModulesSync(x, y);
-        if (n) return n;
-        
-        throw new Error("Cannot find module '" + x + "'");
-        
-        function loadAsFileSync (x) {
-            if (require.modules[x]) {
-                return x;
-            }
-            
-            for (var i = 0; i < require.extensions.length; i++) {
-                var ext = require.extensions[i];
-                if (require.modules[x + ext]) return x + ext;
-            }
-        }
-        
-        function loadAsDirectorySync (x) {
-            x = x.replace(/\/+$/, '');
-            var pkgfile = x + '/package.json';
-            if (require.modules[pkgfile]) {
-                var pkg = require.modules[pkgfile]();
-                var b = pkg.browserify;
-                if (typeof b === 'object' && b.main) {
-                    var m = loadAsFileSync(path.resolve(x, b.main));
-                    if (m) return m;
-                }
-                else if (typeof b === 'string') {
-                    var m = loadAsFileSync(path.resolve(x, b));
-                    if (m) return m;
-                }
-                else if (pkg.main) {
-                    var m = loadAsFileSync(path.resolve(x, pkg.main));
-                    if (m) return m;
-                }
-            }
-            
-            return loadAsFileSync(x + '/index');
-        }
-        
-        function loadNodeModulesSync (x, start) {
-            var dirs = nodeModulesPathsSync(start);
-            for (var i = 0; i < dirs.length; i++) {
-                var dir = dirs[i];
-                var m = loadAsFileSync(dir + '/' + x);
-                if (m) return m;
-                var n = loadAsDirectorySync(dir + '/' + x);
-                if (n) return n;
-            }
-            
-            var m = loadAsFileSync(x);
-            if (m) return m;
-        }
-        
-        function nodeModulesPathsSync (start) {
-            var parts;
-            if (start === '/') parts = [ '' ];
-            else parts = path.normalize(start).split('/');
-            
-            var dirs = [];
-            for (var i = parts.length - 1; i >= 0; i--) {
-                if (parts[i] === 'node_modules') continue;
-                var dir = parts.slice(0, i + 1).join('/') + '/node_modules';
-                dirs.push(dir);
-            }
-            
-            return dirs;
-        }
-    };
-})();
-
-require.alias = function (from, to) {
-    var path = require.modules.path();
-    var res = null;
-    try {
-        res = require.resolve(from + '/package.json', '/');
-    }
-    catch (err) {
-        res = require.resolve(from, '/');
-    }
-    var basedir = path.dirname(res);
-    
-    var keys = (Object.keys || function (obj) {
-        var res = [];
-        for (var key in obj) res.push(key)
-        return res;
-    })(require.modules);
-    
-    for (var i = 0; i < keys.length; i++) {
-        var key = keys[i];
-        if (key.slice(0, basedir.length + 1) === basedir + '/') {
-            var f = key.slice(basedir.length);
-            require.modules[to + f] = require.modules[basedir + f];
-        }
-        else if (key === basedir) {
-            require.modules[to] = require.modules[basedir];
-        }
-    }
-};
-
-require.define = function (filename, fn) {
-    var dirname = require._core[filename]
-        ? ''
-        : require.modules.path().dirname(filename)
-    ;
-    
-    var require_ = function (file) {
-        return require(file, dirname)
-    };
-    require_.resolve = function (name) {
-        return require.resolve(name, dirname);
-    };
-    require_.modules = require.modules;
-    require_.define = require.define;
-    var module_ = { exports : {} };
-    
-    require.modules[filename] = function () {
-        require.modules[filename]._cached = module_.exports;
-        fn.call(
-            module_.exports,
-            require_,
-            module_,
-            module_.exports,
-            dirname,
-            filename
-        );
-        require.modules[filename]._cached = module_.exports;
-        return module_.exports;
-    };
-};
-
-if (typeof process === 'undefined') process = {};
-
-if (!process.nextTick) process.nextTick = (function () {
-    var queue = [];
-    var canPost = typeof window !== 'undefined'
-        && window.postMessage && window.addEventListener
-    ;
-    
-    if (canPost) {
-        window.addEventListener('message', function (ev) {
-            if (ev.source === window && ev.data === 'browserify-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-    }
-    
-    return function (fn) {
-        if (canPost) {
-            queue.push(fn);
-            window.postMessage('browserify-tick', '*');
-        }
-        else setTimeout(fn, 0);
-    };
-})();
-
-if (!process.title) process.title = 'browser';
-
-if (!process.binding) process.binding = function (name) {
-    if (name === 'evals') return require('vm')
-    else throw new Error('No such module')
-};
-
-if (!process.cwd) process.cwd = function () { return '.' };
-
-require.define("path", function (require, module, exports, __dirname, __filename) {
-function filter (xs, fn) {
-    var res = [];
-    for (var i = 0; i < xs.length; i++) {
-        if (fn(xs[i], i, xs)) res.push(xs[i]);
-    }
-    return res;
-}
-
-// resolves . and .. elements in a path array with directory names there
-// must be no slashes, empty elements, or device names (c:\) in the array
-// (so also no leading and trailing slashes - it does not distinguish
-// relative and absolute paths)
-function normalizeArray(parts, allowAboveRoot) {
-  // if the path tries to go above the root, `up` ends up > 0
-  var up = 0;
-  for (var i = parts.length; i >= 0; i--) {
-    var last = parts[i];
-    if (last == '.') {
-      parts.splice(i, 1);
-    } else if (last === '..') {
-      parts.splice(i, 1);
-      up++;
-    } else if (up) {
-      parts.splice(i, 1);
-      up--;
-    }
-  }
-
-  // if the path is allowed to go above the root, restore leading ..s
-  if (allowAboveRoot) {
-    for (; up--; up) {
-      parts.unshift('..');
-    }
-  }
-
-  return parts;
-}
-
-// Regex to split a filename into [*, dir, basename, ext]
-// posix version
-var splitPathRe = /^(.+\/(?!$)|\/)?((?:.+?)?(\.[^.]*)?)$/;
-
-// path.resolve([from ...], to)
-// posix version
-exports.resolve = function() {
-var resolvedPath = '',
-    resolvedAbsolute = false;
-
-for (var i = arguments.length; i >= -1 && !resolvedAbsolute; i--) {
-  var path = (i >= 0)
-      ? arguments[i]
-      : process.cwd();
-
-  // Skip empty and invalid entries
-  if (typeof path !== 'string' || !path) {
-    continue;
-  }
-
-  resolvedPath = path + '/' + resolvedPath;
-  resolvedAbsolute = path.charAt(0) === '/';
-}
-
-// At this point the path should be resolved to a full absolute path, but
-// handle relative paths to be safe (might happen when process.cwd() fails)
-
-// Normalize the path
-resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
-    return !!p;
-  }), !resolvedAbsolute).join('/');
-
-  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
-};
-
-// path.normalize(path)
-// posix version
-exports.normalize = function(path) {
-var isAbsolute = path.charAt(0) === '/',
-    trailingSlash = path.slice(-1) === '/';
-
-// Normalize the path
-path = normalizeArray(filter(path.split('/'), function(p) {
-    return !!p;
-  }), !isAbsolute).join('/');
-
-  if (!path && !isAbsolute) {
-    path = '.';
-  }
-  if (path && trailingSlash) {
-    path += '/';
-  }
-  
-  return (isAbsolute ? '/' : '') + path;
-};
-
-
-// posix version
-exports.join = function() {
-  var paths = Array.prototype.slice.call(arguments, 0);
-  return exports.normalize(filter(paths, function(p, index) {
-    return p && typeof p === 'string';
-  }).join('/'));
-};
-
-
-exports.dirname = function(path) {
-  var dir = splitPathRe.exec(path)[1] || '';
-  var isWindows = false;
-  if (!dir) {
-    // No dirname
-    return '.';
-  } else if (dir.length === 1 ||
-      (isWindows && dir.length <= 3 && dir.charAt(1) === ':')) {
-    // It is just a slash or a drive letter with a slash
-    return dir;
-  } else {
-    // It is a full dirname, strip trailing slash
-    return dir.substring(0, dir.length - 1);
-  }
-};
-
-
-exports.basename = function(path, ext) {
-  var f = splitPathRe.exec(path)[2] || '';
-  // TODO: make this comparison case-insensitive on windows?
-  if (ext && f.substr(-1 * ext.length) === ext) {
-    f = f.substr(0, f.length - ext.length);
-  }
-  return f;
-};
-
-
-exports.extname = function(path) {
-  return splitPathRe.exec(path)[3] || '';
-};
-
-});
-
-require.define("/lib/qrcode-draw.js", function (require, module, exports, __dirname, __filename) {
+},{}],2:[function(require,module,exports){
 /*
 * copyright 2010-2012 Ryan Day
 * http://github.com/soldair/node-qrcode
@@ -611,9 +322,7 @@ QRCodeDraw.prototype = {
 };
 
 
-});
-
-require.define("/lib/qrcode.js", function (require, module, exports, __dirname, __filename) {
+},{"./qrcapacitytable.js":1,"./qrcode.js":3}],3:[function(require,module,exports){
 /**
  * QRCode for JavaScript
  *
@@ -1781,68 +1490,13 @@ QRBitBuffer.prototype = {
 	}
 };
 
-});
-
-require.define("/lib/qrcapacitytable.js", function (require, module, exports, __dirname, __filename) {
-/**
-this contains the max string length for all qr code Versions in Binary Safe / Byte Mode
-each entry is in the order of error correct level
-	[L,M,Q,H]
-
-the qrcode lib sets strange values for QRErrorCorrectLevel having to do with masking against patterns
-the maximum string length for error correct level H is 1273 characters long.
-*/
-
-exports.QRCapacityTable = [
-[17,14,11,7]
-,[32,26,20,14]
-,[53,42,32,24]
-,[78,62,46,34]
-,[106,84,60,44]
-,[134,106,74,58]
-,[154,122,86,64]
-,[192,152,108,84]
-,[230,180,130,98]
-,[271,213,151,119]
-,[321,251,177,137]//11
-,[367,287,203,155]
-,[425,331,241,177]
-,[458,362,258,194]
-,[520,412,292,220]
-,[586,450,322,250]
-,[644,504,364,280]
-,[718,560,394,310]
-,[792,624,442,338]
-,[858,666,482,382]
-,[929,711,509,403]
-,[1003,779,565,439]
-,[1091,857,611,461]
-,[1171,911,661,511]//24
-,[1273,997,715,535]
-,[1367,1059,751,593]
-,[1465,1125,805,625]
-,[1528,1190,868,658]//28
-,[1628,1264,908,698]
-,[1732,1370,982,742]
-,[1840,1452,1030,790]
-,[1952,1538,1112,842]//32
-,[2068,1628,1168,898]
-,[2188,1722,1228,958]
-,[2303,1809,1283,983]
-,[2431,1911,1351,1051]//36
-,[2563,1989,1423,1093]
-,[2699,2099,1499,1139]
-,[2809,2213,1579,1219]
-,[2953,2331,1663,1273]//40
-];
-
-});
-
-require.define("/qrcodeclient.js", function (require, module, exports, __dirname, __filename) {
-    
+},{}],4:[function(require,module,exports){
 var QRCodeLib = require('./lib/qrcode-draw.js');
 
-if(typeof window !== "undefined") window.QRCodeLib = QRCodeLib;
-
-});
-require("/qrcodeclient.js");
+if(typeof window !== "undefined") {
+  window.qrcodelib = window.QRCodeLib = QRCodeLib;
+  // monkey patch old api
+  QRCodeLib.qrcodedraw = QRCodeLib.QRCodeDraw;
+}
+},{"./lib/qrcode-draw.js":2}]},{},[4])
+;
